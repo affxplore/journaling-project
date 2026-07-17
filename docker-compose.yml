@@ -38,11 +38,18 @@ services:
       context: ./frontend
     container_name: journal_frontend
     environment:
-      VITE_API_URL: http://localhost:3000/api
+      # SEKALIAN DIPERBAIKI: Ubah localhost ke IP Publik Manager agar browser laptopmu bisa konek ke API!
+      VITE_API_URL: http://54.82.179.64:3000/api
     ports:
       - "80:5173"
     depends_on:
       - backend
+    # --- PENEMPATANNYA DI SINI ---
+    deploy:
+      placement:
+        constraints:
+          - node.role == worker
+    # -----------------------------
     restart: unless-stopped
 
 volumes:
