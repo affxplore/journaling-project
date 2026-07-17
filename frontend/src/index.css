@@ -1,0 +1,263 @@
+:root {
+  --bg-color: #ffd1dc;
+  --sidebar-bg: #fff0f5;
+  --accent-pink: #ffb7c5;
+  --dark-pink: #ff69b4;
+  --text-dark: #4a4a4a;
+  --white: #ffffff;
+  --border-color: #ffc0cb;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-dark);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-image: radial-gradient(var(--accent-pink) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+h1, h2, h3, .pixel-font {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.app-container {
+  display: flex;
+  width: 900px;
+  height: 600px;
+  background: var(--white);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(255, 105, 180, 0.2);
+  border: 4px solid var(--accent-pink);
+}
+
+/* Sidebar */
+.sidebar {
+  width: 250px;
+  background: var(--sidebar-bg);
+  border-right: 4px solid var(--accent-pink);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 40px;
+  color: var(--dark-pink);
+}
+
+.brand span {
+  font-size: 0.7rem;
+}
+
+.nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.nav-item {
+  padding: 12px 15px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--dark-pink);
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.nav-item:hover, .nav-item.active {
+  background: var(--accent-pink);
+  color: var(--white);
+  border: 2px solid var(--dark-pink);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 var(--dark-pink);
+}
+
+/* Main Area */
+.main-area {
+  flex: 1;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  overflow-y: auto;
+  position: relative;
+}
+
+.main-area::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url('data:image/svg+xml;utf8,<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="1" fill="%23ffb7c5"/></svg>');
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.header-title {
+  color: var(--dark-pink);
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 1.2rem;
+}
+
+/* Auth container */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.auth-box {
+  background: var(--sidebar-bg);
+  padding: 40px;
+  border-radius: 15px;
+  border: 4px solid var(--accent-pink);
+  text-align: center;
+  box-shadow: 4px 4px 0 var(--dark-pink);
+  width: 300px;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--accent-pink);
+  border-radius: 8px;
+  font-family: 'Outfit', sans-serif;
+  outline: none;
+  background: var(--white);
+}
+
+input:focus, textarea:focus {
+  border-color: var(--dark-pink);
+}
+
+button.pixel-btn {
+  background: var(--dark-pink);
+  color: var(--white);
+  border: 2px solid #ff1493;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.6rem;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #ff1493;
+  transition: all 0.1s;
+  width: 100%;
+  margin-top: 10px;
+}
+
+button.pixel-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #ff1493;
+}
+
+/* Journal List */
+.journal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  z-index: 1;
+}
+
+.journal-card {
+  background: #fff9e6;
+  border: 2px solid #ffd700;
+  padding: 15px;
+  border-radius: 10px;
+  position: relative;
+  box-shadow: 3px 3px 0 #ffd700;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.journal-card:hover {
+  transform: rotate(-2deg) scale(1.02);
+}
+
+.journal-card::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 15px;
+  background: rgba(255, 105, 180, 0.4);
+  transform: rotate(-5deg);
+}
+
+.journal-title {
+  font-weight: 600;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.journal-content {
+  font-size: 0.9rem;
+  color: #666;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.journal-date {
+  font-size: 0.7rem;
+  color: #999;
+  margin-top: 10px;
+  text-align: right;
+}
+
+/* Form */
+.new-entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  z-index: 1;
+}
+
+.new-entry-form textarea {
+  height: 200px;
+  resize: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--sidebar-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent-pink);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dark-pink);
+}
