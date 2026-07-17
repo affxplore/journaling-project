@@ -1,4 +1,4 @@
-# Journaling Side Project
+# Journaling Side Project by az
 
 This is a fullstack journaling application built with a modern, emerging web design aesthetic (pastel pink, pixel art inspired). It features a React frontend and an Express/Node.js backend connected to a MySQL database.
 
