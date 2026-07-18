@@ -3,7 +3,6 @@ version: '3.8'
 services:
   db:
     image: mysql:8.0
-    container_name: journal_db
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: journal_db
@@ -13,13 +12,14 @@ services:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-    restart: unless-stopped
+      # Catatan: Gunakan path absolut yang valid di server untuk schema.sql jika memakai Swarm
+      - /home/ubuntu/ansible-deployment/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    deploy:
+      restart_policy:
+        condition: on-failure
 
   backend:
-    build:
-      context: ./backend
-    container_name: journal_backend
+    image: afifatulrohmah/journal-backend:latest
     environment:
       DB_HOST: db
       DB_USER: root
@@ -29,28 +29,22 @@ services:
       PORT: 3000
     ports:
       - "3000:3000"
-    depends_on:
-      - db
-    restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
 
   frontend:
-    build:
-      context: ./frontend
-    container_name: journal_frontend
+    image: afifatulrohmah/journal-frontend:latest
     environment:
-      # SEKALIAN DIPERBAIKI: Ubah localhost ke IP Publik Manager agar browser laptopmu bisa konek ke API!
-      VITE_API_URL=http://54.224.248.145:3000
+      VITE_API_URL: "http://54.224.248.145:3000" # <-- Perbaikan: Menggunakan titik dua (:)
     ports:
       - "80:80"
-    depends_on:
-      - backend
-    # --- PENEMPATANNYA DI SINI ---
     deploy:
       placement:
         constraints:
           - node.role == worker
-    # -----------------------------
-    restart: unless-stopped
+      restart_policy:
+        condition: on-failure
 
 volumes:
   db_data:
