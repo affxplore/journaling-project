@@ -39,7 +39,7 @@ services:
     container_name: journal_frontend
     environment:
       # SEKALIAN DIPERBAIKI: Ubah localhost ke IP Publik Manager agar browser laptopmu bisa konek ke API!
-      VITE_API_URL=http://54.82.179.64:3000
+      VITE_API_URL=http://54.224.248.145:3000
     ports:
       - "80:80"
     depends_on:
