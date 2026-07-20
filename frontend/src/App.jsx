@@ -26,7 +26,7 @@ function App() {
 
   const fetchJournals = async () => {
     try {
-      const res = await axios.get(`${API_URL}/journals`, {
+      const res = await axios.get(`${API_URL}/api/journals`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setJournals(res.data);
@@ -61,7 +61,7 @@ function App() {
   const handleEntrySubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_URL}/journals`, newEntry, {
+      await axios.post(`${API_URL}/api/journals`, newEntry, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNewEntry({ title: '', content: '' });
