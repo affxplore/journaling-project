@@ -42,7 +42,7 @@ function App() {
     setAuthError('');
     try {
       const endpoint = authMode === 'login' ? '/login' : '/register';
-      const res = await axios.post(`${API_URL}${endpoint}`, authForm);
+      const res = await axios.post(`${API_URL}/api${endpoint}`, authForm);
       
       if (authMode === 'login') {
         setToken(res.data.token);
