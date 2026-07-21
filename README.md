@@ -86,40 +86,122 @@ Create an Ansible Playbook on EC2-1 to automate the deployment of the stack.
 **Sample `deploy.yml`**:
 ```yaml
 ---
+- hosts: swarm_workers
+  become: yes
+  tasks:
+    - name: Install Prerequisite Packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Create directory for Docker GPG key
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Docker GPG Key (Modern Way)
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Add Docker Repository (Modern Way)
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker Engine
+      apt:
+        name: docker-ce, docker-ce-cli, containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
 - hosts: swarm_manager
   tasks:
-    - name: Deploy Journal Stack
-      docker_stack:
-        state: present
-        name: journalapp
-        compose:
-          - version: "3.8"
-            services:
-              backend:
-                image: your-registry/journal-backend:latest
-                environment:
-                  DB_HOST: <EC2-5-Private-IP>
-                  DB_USER: root
-                  DB_PASSWORD: your_secure_password
-                  DB_NAME: journal_db
-                  JWT_SECRET: your_production_jwt_secret
-                deploy:
-                  replicas: 3
-                networks:
-                  - backend_overlay
-              frontend:
-                image: your-registry/journal-frontend:latest
-                environment:
-                  VITE_API_URL: http://<Load-Balancer-IP>/api
-                deploy:
-                  replicas: 3
-                ports:
-                  - "80:5173"
-                networks:
-                  - backend_overlay
-            networks:
-              backend_overlay:
-                driver: overlay
+    - hosts: swarm_manager
+  tasks:
+    - name: Initialize Docker Swarm (Manager)
+      shell: "docker swarm init --advertise-addr {{ ansible_default_ipv4.address }}"
+      register: swarm_init
+      failed_when:
+        - swarm_init.rc != 0
+        - "'already part of a swarm' not in swarm_init.stderr"
+
+    - name: Get Swarm Join Token for Workers
+      shell: "docker swarm join-token -q worker"
+      register: worker_token
+- hosts: swarm_workers
+  tasks:
+    - name: Join Worker Nodes to Swarm
+      shell: "docker swarm join --token {{ hostvars['manager1']['worker_token']['stdout'] }} {{ hostvars['manager1']['ansible_default_ipv4']['address'] }}:2377"
+      failed_when: false
+
+- hosts: swarm_manager
+  tasks:
+    - name: Copy Docker Compose Stack File
+      copy:
+        dest: /home/ubuntu/docker-compose-stack.yml
+        content: |
+          version: "3.8"
+          services:
+            backend:
+              image: your_registry/journal-backend:latest
+              environment:
+                DB_HOST: 172.31.30.0
+                DB_USER: journal_user
+                DB_PASSWORD: rootpassword
+                DB_NAME: journal_db
+                JWT_SECRET: <YOUR_JWT_SECRET>
+                PORT: 3000
+              deploy:
+                replicas: 3
+                update_config:
+                  parallelism: 1
+                  delay: 10s
+                restart_policy:
+                  condition: on-failure
+              networks:
+                - backend_overlay
+
+            frontend:
+              image: your_registry/journal-frontend:latest
+              environment:
+                VITE_API_URL: http://<IP_PRIVATE_EC2_WEB>:3000
+              ports:
+                - "80:80" # Nginx melayani port 80 statis
+              deploy:
+                replicas: 3
+                restart_policy:
+                  condition: on-failure
+              networks:
+                - backend_overlay
+
+          networks:
+            backend_overlay:
+              driver: overlay
+
+    - name: Deploy or Update Stack
+      shell: docker stack deploy -c /home/ubuntu/docker-compose-stack.yml journalapp
 ```
 
 Run the playbook:
