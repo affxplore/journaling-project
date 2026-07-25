@@ -38,21 +38,22 @@ jobs:
     steps:
       - name: Trigger Ansible on EC2-1 via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         with:
           host: ${{ secrets.EC2_MANAGER_IP }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: EC2_SSH_KEY
           script: |
+            # 1. Pastikan direktori kerja ada
+            mkdir -p /home/ubuntu/ansible-deployment
             cd /home/ubuntu/ansible-deployment
 
-            # Pastikan file SSH key (.pem) dibuat di EC2 Manager agar Ansible bisa SSH ke Worker
+            # 2. Tulis SSH Key dengan rapi tanpa merusak baris baru (mencegah error in libcrypto)
             mkdir -p ~/.ssh
-            echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+            printf "%s\n" "$EC2_SSH_KEY" > ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
-            
-            # Menarik pembaruan image terbaru di swarm manager
-            docker pull ${{ secrets.DOCKER_USERNAME }}/journal-backend:latest
-            docker pull ${{ secrets.DOCKER_USERNAME }}/journal-frontend:latest
-            
-            # Jalankan playbook untuk redeploy rolling update
+
+            # 3. Eksekusi Ansible Playbook (Ansible akan menangani pull & deploy)
             ansible-playbook -i inventory.ini deploy.yml
