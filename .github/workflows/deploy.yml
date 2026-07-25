@@ -44,8 +44,15 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/ansible-deployment
+
+            # Pastikan file SSH key (.pem) dibuat di EC2 Manager agar Ansible bisa SSH ke Worker
+            mkdir -p ~/.ssh
+            echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            
             # Menarik pembaruan image terbaru di swarm manager
             docker pull ${{ secrets.DOCKER_USERNAME }}/journal-backend:latest
             docker pull ${{ secrets.DOCKER_USERNAME }}/journal-frontend:latest
+            
             # Jalankan playbook untuk redeploy rolling update
             ansible-playbook -i inventory.ini deploy.yml
