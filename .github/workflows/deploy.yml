@@ -50,10 +50,5 @@ jobs:
             mkdir -p /home/ubuntu/ansible-deployment
             cd /home/ubuntu/ansible-deployment
 
-            # 2. Tulis SSH Key dengan rapi tanpa merusak baris baru (mencegah error in libcrypto)
-            mkdir -p ~/.ssh
-            printf "%s\n" "$EC2_SSH_KEY" > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
-
-            # 3. Eksekusi Ansible Playbook (Ansible akan menangani pull & deploy)
+            # 2. Eksekusi Ansible Playbook (Ansible akan menangani pull & deploy)
             ansible-playbook -i inventory.ini deploy.yml
