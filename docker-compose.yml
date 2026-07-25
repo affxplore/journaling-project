@@ -36,7 +36,6 @@ services:
   frontend:
     image: afifatulrohmah/journal-frontend:latest
     environment:
-      VITE_API_URL: "/api"
     ports:
       - "80:80"
     deploy:
