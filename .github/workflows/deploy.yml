@@ -50,5 +50,10 @@ jobs:
             mkdir -p /home/ubuntu/ansible-deployment
             cd /home/ubuntu/ansible-deployment
 
-            # 2. Eksekusi Ansible Playbook (Ansible akan menangani pull & deploy)
+            # 2. Tulis kunci .pem dari GitHub Secret khusus ke file aws_key.pem
+            mkdir -p ~/.ssh
+            printf "%s\n" "$EC2_SSH_KEY" > ~/.ssh/aws_key.pem
+            chmod 600 ~/.ssh/aws_key.pem
+
+            # 3. Eksekusi Ansible Playbook (Ansible akan menangani pull & deploy)
             ansible-playbook -i inventory.ini deploy.yml
