@@ -12,8 +12,9 @@ services:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-      # Catatan: Gunakan path absolut yang valid di server untuk schema.sql jika memakai Swarm
       - /home/ubuntu/ansible-deployment/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - app-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -22,22 +23,25 @@ services:
     image: afifatulrohmah/journal-backend:latest
     environment:
       DB_HOST: db
-      DB_USER: root
-      DB_PASSWORD: rootpassword
+      DB_USER: user             # Diganti ke 'user' agar diizinkan koneksi remote dari container backend
+      DB_PASSWORD: password     # Menggunakan password dari MYSQL_PASSWORD
       DB_NAME: journal_db
       JWT_SECRET: my_super_secret_dev_key
       PORT: 3000
     ports:
       - "3000:3000"
+    networks:
+      - app-network
     deploy:
       restart_policy:
         condition: on-failure
 
   frontend:
     image: afifatulrohmah/journal-frontend:latest
-    environment:
     ports:
       - "80:80"
+    networks:
+      - app-network
     deploy:
       placement:
         constraints:
@@ -47,3 +51,8 @@ services:
 
 volumes:
   db_data:
+
+# Direct komunikasi antar-node di Docker Swarm
+networks:
+  app-network:
+    driver: overlay
