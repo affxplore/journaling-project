@@ -1,223 +1,431 @@
-# Journaling Side Project
+# Journal Application Deployment with Docker Swarm, Ansible, GitHub Actions, and AWS
 
-This is a fullstack journaling application built with a modern, emerging web design aesthetic (pastel pink, pixel art inspired). It features a React frontend and an Express/Node.js backend connected to a MySQL database.
+## Overview
 
-## Architecture
+This project demonstrates a production-oriented deployment workflow for a containerized full-stack Journal Application using modern DevOps practices. The infrastructure is hosted on AWS EC2, automated with Ansible, orchestrated using Docker Swarm, and integrated with GitHub Actions for Continuous Deployment.
 
-The system is designed for deployment based on the following architecture:
-- **Frontend/Backend Workers**: Deployed across EC2-2, EC2-3, EC2-4 via Docker Swarm, acting as worker nodes.
-- **Database**: A MySQL database hosted on EC2-5, secured via UFW.
-- **Orchestration**: Docker Swarm managed by an Ansible Control Node on EC2-1.
+The architecture separates application services from the database layer by placing MySQL inside a private network protected with firewall rules, while frontend and backend services are distributed across multiple worker nodes.
 
-## Local Development (Testing)
-
-You can run the entire stack locally using Docker Compose.
-
-### Prerequisites
-- Docker
-- Docker Compose
-
-### Running the App Locally
-
-1. Clone the repository and navigate to the root directory.
-2. Run `docker-compose up --build -d`
-3. The frontend will be available at `http://localhost:5173`
-4. The backend API will be available at `http://localhost:3000`
-5. The MySQL database will be running on port `3306`.
-
-### Stopping the App
-
-Run `docker-compose down` to stop and remove the containers.
-
-## Cloud Deployment Guide
-
-Follow these steps to deploy the application to your AWS EC2 environment as per the architecture diagram.
-
-### Phase 1: Prepare the Code
-
-1. **Build Docker Images and Push to Registry**:
-   Ensure you have a Docker Hub or ECR registry set up.
-   ```bash
-   # Build Frontend
-   cd frontend
-   docker build -t your-registry/journal-frontend:latest .
-   docker push your-registry/journal-frontend:latest
-   
-   # Build Backend
-   cd ../backend
-   docker build -t your-registry/journal-backend:latest .
-   docker push your-registry/journal-backend:latest
-   ```
-
-### Phase 2: Database Setup (EC2-5)
-
-1. **Install MySQL**: Connect to EC2-5 and install MySQL.
-   ```bash
-   sudo apt update
-   sudo apt install mysql-server
-   sudo systemctl start mysql
-   ```
-2. **Configure MySQL**: Create the database and user. Run the provided `schema.sql` script to set up tables.
-3. **Configure UFW Firewall**: Only allow connections from the Private VPC Network (EC2-2, EC2-3, EC2-4).
-   ```bash
-   sudo ufw default deny incoming
-   sudo ufw default allow outgoing
-   sudo ufw allow ssh
-   # Replace with your VPC CIDR, e.g., 10.0.0.0/16
-   sudo ufw allow from 10.0.0.0/16 to any port 3306
-   sudo ufw enable
-   ```
-
-### Phase 3: Docker Swarm Setup (EC2-1 to EC2-4)
-
-1. **Initialize Swarm on Manager Node (EC2-1)**:
-   ```bash
-   docker swarm init --advertise-addr <EC2-1-Private-IP>
-   ```
-   This command outputs a `docker swarm join` token.
-
-2. **Join Worker Nodes (EC2-2, EC2-3, EC2-4)**:
-   SSH into each worker node and run the `docker swarm join` command copied from the manager node.
-
-### Phase 4: Infrastructure as Code with Ansible (EC2-1)
-
-Create an Ansible Playbook on EC2-1 to automate the deployment of the stack.
-
-**Sample `deploy.yml`**:
-```yaml
 ---
-- hosts: swarm_workers
-  become: yes
-  tasks:
-    - name: Install Prerequisite Packages
-      apt:
-        name:
-          - apt-transport-https
-          - ca-certificates
-          - curl
-          - gnupg
-          - lsb-release
-        state: present
-        update_cache: yes
 
-    - name: Create directory for Docker GPG key
-      file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: '0755'
+# Architecture
 
-    - name: Add Docker GPG Key (Modern Way)
-      get_url:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        dest: /etc/apt/keyrings/docker.asc
-        mode: '0644'
-
-    - name: Add Docker Repository (Modern Way)
-      apt_repository:
-        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-        state: present
-        filename: docker
-
-    - name: Install Docker Engine
-      apt:
-        name: docker-ce, docker-ce-cli, containerd.io
-        state: present
-        update_cache: yes
-
-    - name: Ensure Docker is running
-      systemd:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: Add ubuntu user to docker group
-      user:
-        name: ubuntu
-        groups: docker
-        append: yes
-
-- hosts: swarm_manager
-  tasks:
-    - hosts: swarm_manager
-  tasks:
-    - name: Initialize Docker Swarm (Manager)
-      shell: "docker swarm init --advertise-addr {{ ansible_default_ipv4.address }}"
-      register: swarm_init
-      failed_when:
-        - swarm_init.rc != 0
-        - "'already part of a swarm' not in swarm_init.stderr"
-
-    - name: Get Swarm Join Token for Workers
-      shell: "docker swarm join-token -q worker"
-      register: worker_token
-- hosts: swarm_workers
-  tasks:
-    - name: Join Worker Nodes to Swarm
-      shell: "docker swarm join --token {{ hostvars['manager1']['worker_token']['stdout'] }} {{ hostvars['manager1']['ansible_default_ipv4']['address'] }}:2377"
-      failed_when: false
-
-- hosts: swarm_manager
-  tasks:
-    - name: Copy Docker Compose Stack File
-      copy:
-        dest: /home/ubuntu/docker-compose-stack.yml
-        content: |
-          version: "3.8"
-          services:
-            backend:
-              image: your_registry/journal-backend:latest
-              environment:
-                DB_HOST: 172.31.30.0
-                DB_USER: journal_user
-                DB_PASSWORD: rootpassword
-                DB_NAME: journal_db
-                JWT_SECRET: <YOUR_JWT_SECRET>
-                PORT: 3000
-              deploy:
-                replicas: 3
-                update_config:
-                  parallelism: 1
-                  delay: 10s
-                restart_policy:
-                  condition: on-failure
-              networks:
-                - backend_overlay
-
-            frontend:
-              image: your_registry/journal-frontend:latest
-              environment:
-                VITE_API_URL: http://<IP_PRIVATE_EC2_WEB>:3000
-              ports:
-                - "80:80" # Nginx melayani port 80 statis
-              deploy:
-                replicas: 3
-                restart_policy:
-                  condition: on-failure
-              networks:
-                - backend_overlay
-
-          networks:
-            backend_overlay:
-              driver: overlay
-
-    - name: Deploy or Update Stack
-      shell: docker stack deploy -c /home/ubuntu/docker-compose-stack.yml journalapp
+```
+                    GitHub Repository
+                           │
+                           │ Push
+                           ▼
+                  GitHub Actions Workflow
+                           │
+                    SSH + Ansible
+                           │
+                           ▼
+      EC2-1 (Ansible Control Node & Swarm Manager)
+          │
+          ├──────────────┬──────────────┐
+          │              │              │
+          ▼              ▼              ▼
+      EC2-2          EC2-3          EC2-4
+   Swarm Worker   Swarm Worker   Swarm Worker
+  Nginx + Express Nginx + Express Nginx + Express
+          │              │              │
+          └──────── Overlay Network ───┘
+                      │
+                      ▼
+              EC2-5 MySQL Database
+             Private VPC + UFW Firewall
 ```
 
-Run the playbook:
+---
+
+# Project Highlights
+
+### GitHub Actions
+
+GitHub Actions serves as the Continuous Deployment trigger. Every push to the repository automatically connects to the Swarm Manager (EC2-1) and executes the Ansible deployment workflow.
+
+### EC2-1 — Ansible Control Node & Docker Swarm Manager
+
+EC2-1 functions as the central orchestration server.
+
+Responsibilities include:
+
+- Running Ansible playbooks
+- Initializing Docker Swarm
+- Managing worker nodes
+- Deploying application stacks
+- Coordinating service updates
+
+### Docker Swarm Worker Nodes
+
+EC2-2, EC2-3, and EC2-4 operate as Docker Swarm workers.
+
+Each worker hosts:
+
+- Nginx Reverse Proxy
+- Express.js Backend
+- Frontend Container
+
+Docker Swarm distributes workloads automatically across all worker nodes.
+
+### Private Database Layer
+
+The MySQL server runs exclusively on EC2-5 inside a private AWS VPC network.
+
+Security is enforced through:
+
+- Private IP communication only
+- UFW Firewall
+- No public database access
+- MySQL accepts connections only from internal Swarm nodes
+
+---
+
+# Technology Stack
+
+- AWS EC2
+- Ubuntu Server 24.04 LTS
+- Docker
+- Docker Swarm
+- Docker Hub
+- Ansible
+- GitHub Actions
+- Nginx
+- Express.js
+- MySQL
+- UFW Firewall
+
+---
+
+# Infrastructure
+
+| Instance | Role | Security Group | Public IP |
+|-----------|------|----------------|-----------|
+| EC2-1 | Ansible Control Node & Swarm Manager | SG-Swarm-Cluster | Yes |
+| EC2-2 | Swarm Worker | SG-Swarm-Cluster | Yes |
+| EC2-3 | Swarm Worker | SG-Swarm-Cluster | Yes |
+| EC2-4 | Swarm Worker | SG-Swarm-Cluster | Yes |
+| EC2-5 | MySQL Database Server | SG-Database | No (Recommended) |
+
+Minimum instance specification:
+
+- Ubuntu Server 24.04 LTS (or 22.04 LTS)
+- t2.micro
+
+---
+
+# Security Group Configuration
+
+## SG-Swarm-Cluster
+
+Used by:
+
+- EC2-1
+- EC2-2
+- EC2-3
+- EC2-4
+
+### Inbound Rules
+
+| Port | Purpose | Source |
+|------|----------|---------|
+| 22 | SSH | Your Public IP + EC2-1 Private IP |
+| 80 | HTTP | 0.0.0.0/0 |
+| 3000 | Application | 0.0.0.0/0 |
+| 2377 | Docker Swarm Manager | SG-Swarm-Cluster |
+| 7946 TCP/UDP | Swarm Discovery | SG-Swarm-Cluster |
+| 4789 UDP | Overlay Network | SG-Swarm-Cluster |
+
+---
+
+## SG-Database
+
+Used only by EC2-5.
+
+### Inbound Rules
+
+| Port | Purpose | Source |
+|------|----------|---------|
+| 22 | SSH | EC2-1 Private IP |
+| 3306 | MySQL | AWS Private VPC (e.g., 172.31.0.0/16) |
+
+---
+
+# Configuration Steps
+
+## 1. Launch EC2 Instances
+
+Create five EC2 instances using Ubuntu Server.
+
+| Instance | Role |
+|-----------|------|
+| EC2-1 | Swarm Manager + Ansible |
+| EC2-2 | Swarm Worker |
+| EC2-3 | Swarm Worker |
+| EC2-4 | Swarm Worker |
+| EC2-5 | MySQL Server |
+
+---
+
+## 2. Install MySQL (EC2-5)
+
+```bash
+sudo apt update
+sudo apt install mysql-server -y
+sudo systemctl enable --now mysql
+```
+
+---
+
+## 3. Configure MySQL
+
+Edit MySQL configuration:
+
+```bash
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+```
+
+Change:
+
+```text
+bind-address = 0.0.0.0
+```
+
+Restart MySQL:
+
+```bash
+sudo systemctl restart mysql
+```
+
+---
+
+## 4. Create Database
+
+Enter MySQL:
+
+```bash
+sudo mysql
+```
+
+Create:
+
+- Database
+- User
+- Password
+
+Then import your schema:
+
+```sql
+SOURCE schema.sql;
+```
+
+---
+
+## 5. Configure UFW Firewall
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+sudo ufw allow ssh
+
+sudo ufw allow from 172.31.0.0/16 to any port 3306
+
+sudo ufw --force enable
+```
+
+This configuration ensures that only internal AWS VPC addresses can access MySQL.
+
+---
+
+## 6. Install Ansible (EC2-1)
+
+```bash
+sudo apt update
+
+sudo apt install software-properties-common -y
+
+sudo add-apt-repository --yes --update ppa:ansible/ansible
+
+sudo apt install ansible -y
+```
+
+---
+
+## 7. Generate JWT Secret
+
+Generate a secure JWT secret:
+
+```bash
+openssl rand -base64 32
+```
+
+Copy the generated value into the `JWT_SECRET` variable inside `deploy.yml`.
+
+---
+
+## 8. Configure Ansible Inventory
+
+Create `inventory.ini`.
+
+```ini
+[swarm_manager]
+manager1 ansible_host=<PRIVATE_IP_EC2-1> ansible_connection=local
+
+[swarm_workers]
+worker1 ansible_host=<PRIVATE_IP_EC2-2> ansible_user=ubuntu
+worker2 ansible_host=<PRIVATE_IP_EC2-3> ansible_user=ubuntu
+worker3 ansible_host=<PRIVATE_IP_EC2-4> ansible_user=ubuntu
+```
+
+---
+
+## 9. Prepare Application Images
+
+Choose one of the following options:
+
+### Option A
+
+Clone this repository and build/push your own Docker images to Docker Hub.
+
+### Option B
+
+Pull the pre-built images:
+
+```text
+afifatulrohmah/journal-frontend:latest
+
+afifatulrohmah/journal-backend:latest
+```
+
+---
+
+## 10. Create the Deployment Playbook
+
+Create:
+
+```
+deploy.yml
+```
+
+The playbook should automate:
+
+- Docker installation
+- Docker Swarm initialization
+- Worker node joining
+- Overlay network creation
+- Docker image pulling
+- Stack deployment
+- Environment variable configuration
+- Application deployment
+
+---
+
+# GitHub Actions
+
+Configure the following repository secrets:
+
+| Secret | Description |
+|---------|-------------|
+| DOCKER_USERNAME | Docker Hub username |
+| DOCKER_PASSWORD | Docker Hub password or access token |
+| EC2_MANAGER_IP | Public IP of EC2-1 |
+| EC2_SSH_KEY | Private SSH (.pem) key for EC2-1 |
+
+GitHub Actions will automatically trigger the deployment whenever code is pushed to the repository.
+
+---
+
+# Manual Deployment
+
+Run the deployment manually from EC2-1:
+
 ```bash
 ansible-playbook -i inventory.ini deploy.yml
 ```
 
-### Environment Variables
+---
 
-Ensure the following environment variables are set correctly during deployment:
-*   **Backend:**
-    *   `DB_HOST`: The private IP of EC2-5
-    *   `DB_USER`: Database user
-    *   `DB_PASSWORD`: Database password
-    *   `DB_NAME`: `journal_db`
-    *   `JWT_SECRET`: A strong random string for JWT signing
-    *   `PORT`: `3000` (internal container port)
-*   **Frontend:**
-    *   `VITE_API_URL`: The public-facing URL of the backend API (e.g., via an Nginx reverse proxy or ALB).
+# Verification & Monitoring
+
+After deployment completes successfully, verify the Docker Swarm cluster.
+
+### Check Swarm Nodes
+
+```bash
+docker node ls
+```
+
+---
+
+### Check Deployed Stacks
+
+```bash
+docker stack ls
+```
+
+---
+
+### Check Service Distribution
+
+```bash
+docker stack ps journalapp
+```
+
+This command verifies that containers are running across EC2-2, EC2-3, and EC2-4.
+
+---
+
+# Security Best Practices
+
+- Database is isolated inside a private VPC.
+- MySQL is inaccessible from the public internet.
+- UFW restricts database access to internal network traffic only.
+- Docker Overlay Network enables secure container communication.
+- Deployment is fully automated through GitHub Actions and Ansible.
+- Docker Swarm ensures high availability and workload distribution.
+
+---
+
+# Deployment Workflow
+
+```text
+Developer
+     │
+     ▼
+Git Push
+     │
+     ▼
+GitHub Actions
+     │
+     ▼
+SSH into EC2-1
+     │
+     ▼
+Run Ansible Playbook
+     │
+     ▼
+Initialize Docker Swarm
+     │
+     ▼
+Configure Worker Nodes
+     │
+     ▼
+Pull Docker Images
+     │
+     ▼
+Deploy Docker Stack
+     │
+     ▼
+Workers Connect to MySQL
+through Private VPC
+     │
+     ▼
+Application Available
+```
+
+---
+
+# License
+
+This project is intended for educational and portfolio purposes, demonstrating practical implementation of Infrastructure as Code (IaC), container orchestration, CI/CD automation, and secure cloud deployment using AWS, Docker Swarm, Ansible, and GitHub Actions.
