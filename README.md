@@ -266,7 +266,9 @@ Copy the generated value into the `JWT_SECRET` variable inside `deploy.yml`.
 
 ## 8. Create ansible-deployment Directory
 
-```mkdir ansible-deployment; cd ansible-deployment```
+```bash
+mkdir ansible-deployment; cd ansible-deployment
+```
 
 ## 9. Configure Ansible Inventory
 
