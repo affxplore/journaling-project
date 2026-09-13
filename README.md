@@ -264,7 +264,11 @@ Copy the generated value into the `JWT_SECRET` variable inside `deploy.yml`.
 
 ---
 
-## 8. Configure Ansible Inventory
+## 8. Create ansible-deployment Directory
+
+```mkdir ansible-deployment; cd ansible-deployment```
+
+## 9. Configure Ansible Inventory
 
 Create `inventory.ini`.
 
@@ -280,7 +284,7 @@ worker3 ansible_host=<PRIVATE_IP_EC2-4> ansible_user=ubuntu
 
 ---
 
-## 9. Prepare Application Images
+## 10. Prepare Application Images
 
 Choose one of the following options:
 
@@ -300,7 +304,7 @@ afifatulrohmah/journal-backend:latest
 
 ---
 
-## 10. Create the Deployment Playbook
+## 11. Create the Deployment Playbook
 
 Create:
 
