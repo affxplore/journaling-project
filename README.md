@@ -313,82 +313,94 @@ deploy.yml
 ```
 ```
 ---
-- hosts: swarm_workers
+# 1. Install Docker Engine di Seluruh Node (Manager & Workers)
+- name: Install Docker on All Nodes
+  hosts: all
   become: yes
   tasks:
     - name: Install Prerequisite Packages
-      apt:
+      ansible.builtin.apt:
         name:
-          - apt-transport-https
           - ca-certificates
           - curl
           - gnupg
-          - lsb-release
         state: present
         update_cache: yes
 
-    - name: Add Docker GPG Key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
+    - name: Add Docker Repository (deb822 format)
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: deb
+        uris: https://download.docker.com/linux/ubuntu
+        suites: "{{ ansible_facts['distribution_release'] }}"
+        components: stable
+        signed_by: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
-    - name: Add Docker Repository
-      apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
-        state: present
-
-    - name: Install Docker Engine
-      apt:
-        name: docker-ce, docker-ce-cli, containerd.io
+    - name: Install Docker Packages
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
         state: present
         update_cache: yes
 
-    - name: Ensure Docker is running
-      systemd:
+    - name: Ensure Docker Service is Active
+      ansible.builtin.systemd:
         name: docker
         state: started
         enabled: yes
 
-    - name: Add ubuntu user to docker group
-      user:
+    - name: Add User to Docker Group
+      ansible.builtin.user:
         name: ubuntu
         groups: docker
         append: yes
 
-- hosts: swarm_manager
+# 2. Inisialisasi Cluster Docker Swarm di Manager Node
+- name: Setup Swarm Manager
+  hosts: swarm_manager
+  become: yes
   tasks:
-    - name: Initialize Docker Swarm (Manager)
-      shell: docker swarm init --advertise-addr {{ ansible_default_ipv4.address }}
+    - name: Initialize Docker Swarm
+      ansible.builtin.shell: docker swarm init --advertise-addr {{ ansible_facts['default_ipv4']['address'] }}
       register: swarm_init_result
       failed_when: false
 
-    - name: Get Swarm Join Token
-      shell: docker swarm join-token -q worker
+    - name: Retrieve Swarm Worker Join Token
+      ansible.builtin.shell: docker swarm join-token -q worker
       register: worker_token
       changed_when: false
 
-- hosts: swarm_workers
+# 3. Hubungkan Semua Worker Node ke Swarm
+- name: Join Swarm Workers
+  hosts: swarm_workers
+  become: yes
   tasks:
-    - name: Join Worker Nodes to Swarm
-      shell: "docker swarm join --token {{ hostvars['manager1']['worker_token']['stdout'] }} {{ hostvars['manager1']['ansible_default_ipv4']['address'] }}:2377"
+    - name: Join Swarm Cluster as Worker
+      ansible.builtin.shell: "docker swarm join --token {{ hostvars[groups['swarm_manager'][0]]['worker_token']['stdout'] }} {{ hostvars[groups['swarm_manager'][0]]['ansible_facts']['default_ipv4']['address'] }}:2377"
       failed_when: false
 
-- hosts: swarm_manager
+# 4. Deploy Application Stack ke Swarm Cluster
+- name: Deploy Application Stack
+  hosts: swarm_manager
+  become: yes
   tasks:
     - name: Copy Docker Compose Stack File
-      copy:
+      ansible.builtin.copy:
         dest: /home/ubuntu/docker-compose-stack.yml
         content: |
           version: "3.8"
           services:
             backend:
-              image: your-registry/journal-backend:latest
+              image: afifatulrohmah/journal-backend:latest
               environment:
-                DB_HOST: <IP_PRIVATE_EC2_5>
+                DB_HOST: your-db-host
                 DB_USER: journal_user
                 DB_PASSWORD: PasswordSangatAman123!
                 DB_NAME: journal_db
-                JWT_SECRET: your_production_jwt_secret
+                JWT_SECRET: your-jwt-secret
                 PORT: 3000
               deploy:
                 replicas: 3
@@ -401,11 +413,11 @@ deploy.yml
                 - backend_overlay
 
             frontend:
-              image: your-registry/journal-frontend:latest
+              image: afifatulrohmah/journal-frontend:latest
               environment:
                 VITE_API_URL: http://localhost:3000
               ports:
-                - "80:80" # Nginx melayani port 80 statis
+                - "80:80"
               deploy:
                 replicas: 3
                 restart_policy:
@@ -417,8 +429,8 @@ deploy.yml
             backend_overlay:
               driver: overlay
 
-    - name: Deploy or Update Stack
-      shell: docker stack deploy -c /home/ubuntu/docker-compose-stack.yml journalapp
+    - name: Deploy or Update Stack to Swarm
+      ansible.builtin.shell: docker stack deploy -c /home/ubuntu/docker-compose-stack.yml journalapp
 ```
 
 The playbook should automate:
