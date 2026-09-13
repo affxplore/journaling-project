@@ -55,5 +55,7 @@ jobs:
             printf "%s\n" "$EC2_SSH_KEY" > ~/.ssh/aws_key.pem
             chmod 600 ~/.ssh/aws_key.pem
 
-            # 3. Eksekusi Ansible Playbook (Ansible akan menangani pull & deploy)
+            # 3. Matikan pengecekan host key agar Ansible bisa login ke worker tanpa prompt
+
+            # 4. Eksekusi Ansible Playbook (Ansible akan menangani pull & deploy)
             ansible-playbook -i inventory.ini deploy.yml
