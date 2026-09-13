@@ -56,6 +56,7 @@ jobs:
             chmod 600 ~/.ssh/aws_key.pem
 
             # 3. Matikan pengecekan host key agar Ansible bisa login ke worker tanpa prompt
+            export ANSIBLE_HOST_KEY_CHECKING=False
 
             # 4. Eksekusi Ansible Playbook (Ansible akan menangani pull & deploy)
             ansible-playbook -i inventory.ini deploy.yml
