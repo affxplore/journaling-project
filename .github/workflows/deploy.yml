@@ -53,7 +53,7 @@ jobs:
             # 2. Tulis kunci .pem dari GitHub Secret khusus ke file aws_key.pem
             mkdir -p ~/.ssh
             printf "%s\n" "$EC2_SSH_KEY" > ~/.ssh/journal.pem
-            chmod 600 ~/.ssh/aws_key.pem
+            chmod 600 ~/.ssh/journal.pem
 
             # 3. Matikan pengecekan host key agar Ansible bisa login ke worker tanpa prompt
             export ANSIBLE_HOST_KEY_CHECKING=False
