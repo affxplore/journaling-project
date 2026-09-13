@@ -281,10 +281,7 @@ worker1 ansible_host=<PRIVATE_IP_EC2-2> ansible_user=ubuntu
 worker2 ansible_host=<PRIVATE_IP_EC2-3> ansible_user=ubuntu
 worker3 ansible_host=<PRIVATE_IP_EC2-4> ansible_user=ubuntu
 ```
-
----
-
-# kalau pakai .pem sebagai penghubung ssh dari ec2 manager ke ec2 workers
+Note: kalau pakai .pem sebagai penghubung ssh dari ec2 manager ke ec2 workers
 
 ```
 [swarm_manager]
@@ -295,6 +292,7 @@ worker1 ansible_host=172.31.38.14 ansible_user=ubuntu ansible_ssh_private_key_fi
 worker2 ansible_host=172.31.47.211 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/journal.pem
 worker3 ansible_host=172.31.39.185 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/journal.pem
 ```
+---
 
 ## 10. Prepare Application Images
 
