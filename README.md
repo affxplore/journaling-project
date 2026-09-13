@@ -307,6 +307,115 @@ Create:
 ```
 deploy.yml
 ```
+```
+---
+- hosts: swarm_workers
+  become: yes
+  tasks:
+    - name: Install Prerequisite Packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+
+    - name: Install Docker Engine
+      apt:
+        name: docker-ce, docker-ce-cli, containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+- hosts: swarm_manager
+  tasks:
+    - name: Initialize Docker Swarm (Manager)
+      shell: docker swarm init --advertise-addr {{ ansible_default_ipv4.address }}
+      register: swarm_init_result
+      failed_when: false
+
+    - name: Get Swarm Join Token
+      shell: docker swarm join-token -q worker
+      register: worker_token
+      changed_when: false
+
+- hosts: swarm_workers
+  tasks:
+    - name: Join Worker Nodes to Swarm
+      shell: "docker swarm join --token {{ hostvars['manager1']['worker_token']['stdout'] }} {{ hostvars['manager1']['ansible_default_ipv4']['address'] }}:2377"
+      failed_when: false
+
+- hosts: swarm_manager
+  tasks:
+    - name: Copy Docker Compose Stack File
+      copy:
+        dest: /home/ubuntu/docker-compose-stack.yml
+        content: |
+          version: "3.8"
+          services:
+            backend:
+              image: your-registry/journal-backend:latest
+              environment:
+                DB_HOST: <IP_PRIVATE_EC2_5>
+                DB_USER: journal_user
+                DB_PASSWORD: PasswordSangatAman123!
+                DB_NAME: journal_db
+                JWT_SECRET: your_production_jwt_secret
+                PORT: 3000
+              deploy:
+                replicas: 3
+                update_config:
+                  parallelism: 1
+                  delay: 10s
+                restart_policy:
+                  condition: on-failure
+              networks:
+                - backend_overlay
+
+            frontend:
+              image: your-registry/journal-frontend:latest
+              environment:
+                VITE_API_URL: http://localhost:3000
+              ports:
+                - "80:80" # Nginx melayani port 80 statis
+              deploy:
+                replicas: 3
+                restart_policy:
+                  condition: on-failure
+              networks:
+                - backend_overlay
+
+          networks:
+            backend_overlay:
+              driver: overlay
+
+    - name: Deploy or Update Stack
+      shell: docker stack deploy -c /home/ubuntu/docker-compose-stack.yml journalapp
+```
 
 The playbook should automate:
 
