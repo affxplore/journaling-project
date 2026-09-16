@@ -408,7 +408,7 @@ deploy.yml
             backend:
               image: afifatulrohmah/journal-backend:latest
               environment:
-                DB_HOST: your-db-host
+                DB_HOST: your-ip-private-ec2-5 (Database)
                 DB_USER: journal_user
                 DB_PASSWORD: PasswordSangatAman123!
                 DB_NAME: journal_db
